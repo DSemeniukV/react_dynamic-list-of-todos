@@ -6,74 +6,52 @@ import { TodoList } from './components/TodoList';
 import { TodoFilter } from './components/TodoFilter';
 import { TodoModal } from './components/TodoModal';
 import { Loader } from './components/Loader';
-import { getTodos, getUser } from './api';
+import { getTodos } from './api';
 import { Todo } from './types/Todo';
-import { User } from './types/User';
 
 export const App: React.FC = () => {
-  const [todos, setTodos] = useState<Todo[]>([]);
-  const [isComplete, setIsComplete] = useState<string | boolean>('all');
-  const [query, setQuery] = useState<string>('');
-  const [isShownPostInfo, setIsShownPostInfo] = useState<boolean>(false);
-  const [selectedUser, setSelectedUser] = useState<User>({} as User);
-  const [selectedTodo, setSelectedTodo] = useState<Todo>({} as Todo);
+  const [todosFromServer, setTodosFromServer] = useState<Todo[]>([]);
+  const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [query, setQuery] = useState('');
+  const [selectedValue, setSelectedValue] = useState('all');
 
-  const handleInputChange = (e: string): void => {
-    setQuery(e);
+  const onQueryChange = (value: string) => {
+    setQuery(value);
   };
 
-  const handleShowPostInfo = (todo: Todo): void => {
-    getUser(todo.userId).then(user => {
-      setSelectedUser(user);
-      setSelectedTodo(todo);
-    });
+  const onSelectChange = (value: string) => {
+    setSelectedValue(value);
   };
 
-  const filteredTodos = todos.filter(todo =>
-    todo.title.toLowerCase().includes(query.toLowerCase()),
-  );
-
-  useEffect(() => {
-    if (!query) {
-      return setTodos(todos);
-    }
-  }, [query, filteredTodos, todos]);
-
-  useEffect(() => {
-    getTodos().then(todosFrom => {
-      setTodos(todosFrom);
-    });
-  }, []);
-
-  useEffect(() => {
-    if (isComplete === 'all') {
-      getTodos().then(todosFrom => {
-        setTodos(todosFrom);
-      });
-    } else if (isComplete === true) {
-      getTodos().then(todosFrom => {
-        setTodos(todosFrom.filter(todo => todo.completed));
-      });
-    } else if (isComplete === false) {
-      getTodos().then(todosFrom => {
-        setTodos(todosFrom.filter(todo => !todo.completed));
-      });
-    }
-  }, [isComplete]);
-
-  const filterTodos = (param: string) => {
-    switch (param) {
-      case 'all':
-        setIsComplete('all');
-        break;
-      case 'completed':
-        setIsComplete(true);
-        break;
-      case 'active':
-        setIsComplete(false);
-        break;
-    }
+  const onReset = () => {
+    setQuery('');
+    setSelectedValue('all');
   };
+
+  useEffect(() => {
+    setIsLoading(true);
+
+    getTodos()
+      .then((todos: Todo[]) => {
+        let filtered = todos;
+
+        if (selectedValue === 'active') {
+          filtered = filtered.filter(todo => !todo.completed);
+        } else if (selectedValue === 'completed') {
+          filtered = filtered.filter(todo => todo.completed);
+        }
+
+        if (query.trim() !== '') {
+          filtered = filtered.filter(todo =>
+            todo.title.toLowerCase().includes(query.toLowerCase()),
+          );
+        }
+
+        setTodosFromServer(filtered);
+      })
+      .finally(() => setIsLoading(false));
+  }, [selectedValue, query]);
 
   return (
     <>
@@ -84,31 +62,31 @@ export const App: React.FC = () => {
 
             <div className="block">
               <TodoFilter
-                filterTodo={filterTodos}
-                inputTodo={handleInputChange}
                 query={query}
+                selectedValue={selectedValue}
+                onQueryChange={onQueryChange}
+                onSelectChange={onSelectChange}
+                onReset={onReset}
               />
             </div>
 
             <div className="block">
-              <Loader />
-              <TodoList
-                todos={filteredTodos}
-                handleShowPostInfo={handleShowPostInfo}
-                setIsShownPostInfo={setIsShownPostInfo}
-                isShownPostInfo={isShownPostInfo}
-              />
+              {isLoading ? (
+                <Loader />
+              ) : (
+                <TodoList
+                  todos={todosFromServer}
+                  selectedTodoId={selectedTodo?.id}
+                  onSelectTodo={setSelectedTodo}
+                />
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      {isShownPostInfo && (
-        <TodoModal
-          setIsShownPostInfo={setIsShownPostInfo}
-          selectedUser={selectedUser}
-          selectedTodo={selectedTodo}
-        />
+      {selectedTodo && (
+        <TodoModal todo={selectedTodo} onClose={() => setSelectedTodo(null)} />
       )}
     </>
   );
