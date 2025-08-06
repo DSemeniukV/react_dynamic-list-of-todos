@@ -1,31 +1,26 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Loader } from '../Loader';
 import { User } from '../../types/User';
-import { getUser } from '../../api';
 import { Todo } from '../../types/Todo';
 
-type Props = {
+interface TodoModalProps {
   todo: Todo;
-  onClose: () => void;
-};
+  user: User | null;
+  userLoading: boolean;
+  setSelectedTodo: (selectedTodo: Todo | null) => void;
+}
 
-export const TodoModal: React.FC<Props> = ({ todo, onClose }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    setIsLoading(true);
-
-    getUser(todo.userId)
-      .then(setUser)
-      .finally(() => setIsLoading(false));
-  }, [todo.userId]);
-
+export const TodoModal: React.FC<TodoModalProps> = ({
+  todo,
+  user,
+  userLoading,
+  setSelectedTodo,
+}) => {
   return (
     <div className="modal is-active" data-cy="modal">
       <div className="modal-background" />
 
-      {isLoading ? (
+      {userLoading ? (
         <Loader />
       ) : (
         <div className="modal-card">
@@ -42,7 +37,9 @@ export const TodoModal: React.FC<Props> = ({ todo, onClose }) => {
               type="button"
               className="delete"
               data-cy="modal-close"
-              onClick={onClose}
+              onClick={() => {
+                setSelectedTodo(null);
+              }}
             />
           </header>
 
@@ -52,16 +49,15 @@ export const TodoModal: React.FC<Props> = ({ todo, onClose }) => {
             </p>
 
             <p className="block" data-cy="modal-user">
-              {/* <strong className="has-text-success">Done</strong> */}
-              <strong className="has-text-danger">
-                {todo.completed ? 'Done' : 'Planned'}
-              </strong>
+              {todo.completed ? (
+                <strong className="has-text-success">Done</strong>
+              ) : (
+                <strong className="has-text-danger">Planned</strong>
+              )}
 
               {' by '}
 
-              {user !== null && (
-                <a href={`mailto:${user.email}`}>{user.name}</a>
-              )}
+              <a href="mailto:Sincere@april.biz">{user && user.name}</a>
             </p>
           </div>
         </div>

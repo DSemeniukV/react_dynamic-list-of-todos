@@ -4,54 +4,60 @@ import '@fortawesome/fontawesome-free/css/all.css';
 
 import { TodoList } from './components/TodoList';
 import { TodoFilter } from './components/TodoFilter';
-import { TodoModal } from './components/TodoModal';
-import { Loader } from './components/Loader';
-import { getTodos } from './api';
 import { Todo } from './types/Todo';
+import { getTodos, getUser } from './api';
+import { TodoModal } from './components/TodoModal';
+import { User } from './types/User';
 
 export const App: React.FC = () => {
-  const [todosFromServer, setTodosFromServer] = useState<Todo[]>([]);
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [userLoading, setUserLoading] = useState(true);
+  const [query, setQuery] = useState('all');
+  const [search, setsearch] = useState('');
   const [selectedTodo, setSelectedTodo] = useState<Todo | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [query, setQuery] = useState('');
-  const [selectedValue, setSelectedValue] = useState('all');
+  const [selectedUser, setSelectedUser] = useState(0);
 
-  const onQueryChange = (value: string) => {
-    setQuery(value);
+  const handleFilter = (to: Todo[], qu: string, ser: string) => {
+    const filteredTodos = [...to];
+
+    if (qu === 'active') {
+      return filteredTodos
+        .filter((t: Todo) => !t.completed)
+        .filter(t => t.title.toLowerCase().includes(ser.toLowerCase()));
+    }
+
+    if (qu === 'completed') {
+      return filteredTodos
+        .filter((t: Todo) => t.completed)
+        .filter(t => t.title.toLowerCase().includes(ser.toLowerCase()));
+    } else {
+      return filteredTodos.filter(t =>
+        t.title.toLowerCase().includes(ser.toLowerCase()),
+      );
+    }
   };
 
-  const onSelectChange = (value: string) => {
-    setSelectedValue(value);
-  };
-
-  const onReset = () => {
-    setQuery('');
-    setSelectedValue('all');
-  };
+  const currentTodos = handleFilter(todos, query, search);
 
   useEffect(() => {
-    setIsLoading(true);
+    setLoading(true);
+    getTodos().then((res: Todo[]) => {
+      setTodos(res);
+      setLoading(false);
+    });
+  }, []);
 
-    getTodos()
-      .then((todos: Todo[]) => {
-        let filtered = todos;
-
-        if (selectedValue === 'active') {
-          filtered = filtered.filter(todo => !todo.completed);
-        } else if (selectedValue === 'completed') {
-          filtered = filtered.filter(todo => todo.completed);
-        }
-
-        if (query.trim() !== '') {
-          filtered = filtered.filter(todo =>
-            todo.title.toLowerCase().includes(query.toLowerCase()),
-          );
-        }
-
-        setTodosFromServer(filtered);
-      })
-      .finally(() => setIsLoading(false));
-  }, [selectedValue, query]);
+  useEffect(() => {
+    if (selectedUser !== 0) {
+      setUserLoading(true);
+      getUser(selectedUser).then((res: User) => {
+        setUser(res);
+        setUserLoading(false);
+      });
+    }
+  }, [selectedUser]);
 
   return (
     <>
@@ -62,31 +68,32 @@ export const App: React.FC = () => {
 
             <div className="block">
               <TodoFilter
-                query={query}
-                selectedValue={selectedValue}
-                onQueryChange={onQueryChange}
-                onSelectChange={onSelectChange}
-                onReset={onReset}
+                setQuery={setQuery}
+                setSearch={setsearch}
+                search={search}
               />
             </div>
 
             <div className="block">
-              {isLoading ? (
-                <Loader />
-              ) : (
-                <TodoList
-                  todos={todosFromServer}
-                  selectedTodoId={selectedTodo?.id}
-                  onSelectTodo={setSelectedTodo}
-                />
-              )}
+              <TodoList
+                todos={currentTodos}
+                loading={loading}
+                setSelectedTodo={setSelectedTodo}
+                setSelectedUser={setSelectedUser}
+                selectedTodo={selectedTodo}
+              />
             </div>
           </div>
         </div>
       </div>
 
-      {selectedTodo && (
-        <TodoModal todo={selectedTodo} onClose={() => setSelectedTodo(null)} />
+      {selectedTodo !== null && (
+        <TodoModal
+          todo={selectedTodo}
+          user={user}
+          userLoading={userLoading}
+          setSelectedTodo={setSelectedTodo}
+        />
       )}
     </>
   );
